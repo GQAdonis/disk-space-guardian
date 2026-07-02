@@ -1,0 +1,11 @@
+{
+  "stage": "plan",
+  "completedAt": "2026-07-02T17:34:21Z",
+  "outputs": [
+    "plan.md"
+  ],
+  "nextStage": "execute",
+  "summaryForNext": "5 changes, dependency-ordered: specs baseline (001) -> workspace scaffold (002) -> safety module + scanner core in parallel (003/004) -> detectors + clean wiring (005). First to apply: change-001-establish-capability-specs — it binds the four safety design decisions every code change depends on. TUI and Windows explicitly deferred.",
+  "skipped": false,
+  "skipReason": null
+}

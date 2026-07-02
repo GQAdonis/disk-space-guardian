@@ -1,7 +1,7 @@
 {
   "name": "Disk Space Guardian",
   "description": "Intelligent, safety-first disk management for developer workstations (Rust CLI `dsg` + AgentSkills.io SKILL.md + optional MCP server). Currently spec-only.",
-  "active_phase": null,
+  "active_phase": "dsg-cli-foundation",
   "focus_project_path": "/Users/gqadonis/Projects/prometheus/developer-mac-disk-space-skill",
   "spec_paths": [
     "docs/README.md",
@@ -17,10 +17,22 @@
   "lint_command": "cargo clippy --all-targets --all-features -- -D warnings",
   "dev_command": null,
   "preferred_planning_agent": "claude",
-  "preferred_execution_agents": ["claude", "codex", "opencode", "kimi"],
+  "preferred_execution_agents": [
+    "claude",
+    "codex",
+    "opencode",
+    "kimi"
+  ],
   "agents_config": {
-    "openspec_adapters": ["claude", "kimi", "opencode", "codex"],
-    "agents_md_consumers": ["zed"],
+    "openspec_adapters": [
+      "claude",
+      "kimi",
+      "opencode",
+      "codex"
+    ],
+    "agents_md_consumers": [
+      "zed"
+    ],
     "notes": "OpenSpec initialized for claude/kimi/opencode/codex via `.claude`, `.kimi`, `.opencode`, `.codex`. Zed and other AGENTS.md-following agents read root AGENTS.md (mirrors CLAUDE.md). mmx excluded (media-generation CLI, not a coding agent)."
   },
   "workspace": {

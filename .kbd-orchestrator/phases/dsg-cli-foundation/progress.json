@@ -1,0 +1,31 @@
+{
+  "phase": "dsg-cli-foundation",
+  "last_updated": "2026-07-02T17:34:21Z",
+  "last_updated_by": "claude-code",
+  "assessment_complete": true,
+  "plan_complete": true,
+  "execution_dispatched": false,
+  "reflection_complete": false,
+  "changes": {
+    "change-001-establish-capability-specs": {
+      "status": "PENDING",
+      "started_by": null
+    },
+    "change-002-scaffold-workspace-cli": {
+      "status": "PENDING",
+      "started_by": null
+    },
+    "change-003-safety-module": {
+      "status": "PENDING",
+      "started_by": null
+    },
+    "change-004-scanner-core": {
+      "status": "PENDING",
+      "started_by": null
+    },
+    "change-005-ecosystem-detectors-clean": {
+      "status": "PENDING",
+      "started_by": null
+    }
+  }
+}

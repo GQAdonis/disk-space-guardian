@@ -1,0 +1,23 @@
+{
+  "__schemaVersion": "3",
+  "path": [
+    "dsg-cli-foundation"
+  ],
+  "phase": "dsg-cli-foundation",
+  "previousPhase": null,
+  "change": null,
+  "status": "plan_complete",
+  "currentTask": "Execute change-001-establish-capability-specs",
+  "nextPendingChange": "change-001-establish-capability-specs",
+  "sourceTool": "claude-code",
+  "exactNextCommand": "/kbd-execute dsg-cli-foundation",
+  "parentPhase": null,
+  "childPhases": [],
+  "childPointer": null,
+  "backend": null,
+  "wave": null,
+  "lastCompletedChange": null,
+  "changesCompleted": 0,
+  "changesTotal": 5,
+  "updatedAt": "2026-07-02T17:34:21Z"
+}

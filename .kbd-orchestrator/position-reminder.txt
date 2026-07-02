@@ -1,0 +1,10 @@
+POSITION REMINDER — read this as your FIRST tool call every turn
+Phase: dsg-cli-foundation
+Step: 0 of 0
+Stage: unknown
+Next command: /kbd-execute dsg-cli-foundation
+
+Required signal format (emit BEFORE any tool call):
+  Starting <kbd-skill> — dsg-cli-foundation (step 0 of 0)
+  [do work]
+  Completed <kbd-skill> — dsg-cli-foundation (step 0 of 0)

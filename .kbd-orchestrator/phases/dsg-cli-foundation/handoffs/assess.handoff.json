@@ -1,0 +1,11 @@
+{
+  "stage": "assess",
+  "completedAt": "2026-07-02T17:30:07Z",
+  "outputs": [
+    "assessment.md"
+  ],
+  "nextStage": "analyze",
+  "summaryForNext": "Greenfield: all three goals NOT MET, no code exists. Key inputs for plan: establish OpenSpec capability specs first (openspec/specs empty), verify research-era crate versions before scaffold, decide TUI include/defer and CI placement, and resolve four safety design risks (TOCTOU re-check, symlink no-follow, trash-on-external-volume errors, mtime as min-age basis). Safety-module tests should gate all destructive-path code.",
+  "skipped": false,
+  "skipReason": null
+}
