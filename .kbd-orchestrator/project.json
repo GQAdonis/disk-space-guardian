@@ -1,0 +1,36 @@
+{
+  "name": "Disk Space Guardian",
+  "description": "Intelligent, safety-first disk management for developer workstations (Rust CLI `dsg` + AgentSkills.io SKILL.md + optional MCP server). Currently spec-only.",
+  "active_phase": null,
+  "focus_project_path": "/Users/gqadonis/Projects/prometheus/developer-mac-disk-space-skill",
+  "spec_paths": [
+    "docs/README.md",
+    "docs/Prometheus Base Rules Set.md",
+    "openspec/specs"
+  ],
+  "openspec_available": true,
+  "constraint_file": ".kbd-orchestrator/constraints.md",
+  "stack": "rust",
+  "stack_note": "Declared Rust workspace in the spec; no Cargo.toml scaffolded yet. Build/test/lint commands below are targets and will not run until the workspace is created.",
+  "build_health_command": "cargo check --workspace --all-targets",
+  "test_command": "cargo test --workspace",
+  "lint_command": "cargo clippy --all-targets --all-features -- -D warnings",
+  "dev_command": null,
+  "preferred_planning_agent": "claude",
+  "preferred_execution_agents": ["claude", "codex", "opencode", "kimi"],
+  "agents_config": {
+    "openspec_adapters": ["claude", "kimi", "opencode", "codex"],
+    "agents_md_consumers": ["zed"],
+    "notes": "OpenSpec initialized for claude/kimi/opencode/codex via `.claude`, `.kimi`, `.opencode`, `.codex`. Zed and other AGENTS.md-following agents read root AGENTS.md (mirrors CLAUDE.md). mmx excluded (media-generation CLI, not a coding agent)."
+  },
+  "workspace": {
+    "workspace_file": null,
+    "folders": [
+      {
+        "path": "/Users/gqadonis/Projects/prometheus/developer-mac-disk-space-skill",
+        "role": "focus",
+        "write_access": true
+      }
+    ]
+  }
+}
