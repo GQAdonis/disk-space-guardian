@@ -1,5 +1,6 @@
 mod config;
 mod safety;
+mod scanner;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -139,28 +140,81 @@ fn main() -> Result<()> {
 }
 
 fn cmd_status(json: bool, _cfg: &config::Config) -> Result<()> {
+    // Well-known developer cache roots to measure
+    let roots: Vec<(String, std::path::PathBuf)> = build_status_roots();
+    let measurements = scanner::measure_roots(&roots);
     if json {
-        println!(r#"{{"status":"ok","message":"dsg status stub — scanner core arrives in change-dsg-004"}}"#);
+        scanner::report_status_json(&measurements)
     } else {
-        println!("dsg status — scanner core arrives in change-dsg-004");
+        scanner::report_status_human(&measurements);
+        Ok(())
     }
-    Ok(())
+}
+
+fn build_status_roots() -> Vec<(String, std::path::PathBuf)> {
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return vec![],
+    };
+    vec![
+        ("Cargo registry".to_string(), home.join(".cargo/registry")),
+        ("Cargo git".to_string(), home.join(".cargo/git")),
+        ("Cargo target (global)".to_string(), home.join(".cargo/target")),
+        ("npm cache".to_string(), home.join(".npm/_cacache")),
+        ("pnpm store".to_string(), home.join(".local/share/pnpm/store")),
+        ("pip cache".to_string(), home.join(".cache/pip")),
+        ("Go module cache".to_string(), home.join("go/pkg/mod")),
+        ("Docker volumes".to_string(), std::path::PathBuf::from("/var/lib/docker/volumes")),
+        ("Xcode DerivedData".to_string(), home.join("Library/Developer/Xcode/DerivedData")),
+        ("Homebrew cache".to_string(), home.join("Library/Caches/Homebrew")),
+    ]
 }
 
 fn cmd_scan(
-    _deep: bool,
+    deep: bool,
     ecosystem: Option<&str>,
-    _stale: Option<&str>,
-    _json: bool,
-    _cfg: &config::Config,
+    stale: Option<&str>,
+    json: bool,
+    cfg: &config::Config,
 ) -> Result<()> {
-    eprintln!(
-        "[stub] dsg scan — full implementation lands in change-dsg-004 (scanner core){}",
-        ecosystem
-            .map(|e| format!(" [ecosystem: {e}]"))
-            .unwrap_or_default()
-    );
-    Ok(())
+    let stale_secs = stale.and_then(|s| parse_duration(s));
+
+    let opts = scanner::ScanOptions {
+        deep,
+        ecosystem_filter: ecosystem.map(str::to_string),
+        stale_secs,
+        min_size_bytes: cfg.min_size_mb * 1024 * 1024,
+    };
+
+    // Detectors are stubs here; change-dsg-005 populates these properly.
+    let detectors: Vec<Box<dyn scanner::EcosystemDetector>> = vec![];
+
+    let root = if deep {
+        dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
+    } else {
+        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+    };
+
+    let results = scanner::scan_directory(&root, &opts, &detectors);
+
+    if json {
+        scanner::report_json(&results)
+    } else {
+        scanner::report_human(&results);
+        Ok(())
+    }
+}
+
+/// Parse simple duration strings: "7d", "30d", "90d" → seconds.
+/// Falls back to None on parse errors so the scan proceeds without a stale filter.
+fn parse_duration(s: &str) -> Option<u64> {
+    if let Some(days) = s.strip_suffix('d') {
+        return days.parse::<u64>().ok().map(|d| d * 86_400);
+    }
+    if let Some(hours) = s.strip_suffix('h') {
+        return hours.parse::<u64>().ok().map(|h| h * 3_600);
+    }
+    None
 }
 
 fn cmd_clean(
