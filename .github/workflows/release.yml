@@ -19,19 +19,15 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-14
             binary: dsg
-            artifact: dsg-aarch64-apple-darwin
           - target: x86_64-apple-darwin
             os: macos-13
             binary: dsg
-            artifact: dsg-x86_64-apple-darwin
           - target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
             binary: dsg
-            artifact: dsg-x86_64-unknown-linux-musl
           - target: x86_64-pc-windows-msvc
             os: windows-2022
             binary: dsg.exe
-            artifact: dsg-x86_64-pc-windows-msvc.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -48,14 +44,17 @@ jobs:
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} --manifest-path dsg/Cargo.toml
 
-      - name: Rename binary
+      - name: Package binary as versioned tar.gz
         shell: bash
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           SRC="dsg/target/${{ matrix.target }}/release/${{ matrix.binary }}"
-          cp "$SRC" "${{ matrix.artifact }}"
+          ARCHIVE="dsg-${VERSION}-${{ matrix.target }}.tar.gz"
+          tar -czf "${ARCHIVE}" -C "$(dirname "${SRC}")" "$(basename "${SRC}")"
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact }}
+          files: ${{ env.ARCHIVE }}
           generate_release_notes: true
