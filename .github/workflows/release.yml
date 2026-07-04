@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          SRC="dsg/target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          SRC="target/${{ matrix.target }}/release/${{ matrix.binary }}"
           ARCHIVE="dsg-${VERSION}-${{ matrix.target }}.tar.gz"
           tar -czf "${ARCHIVE}" -C "$(dirname "${SRC}")" "$(basename "${SRC}")"
           echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
