@@ -1,8 +1,10 @@
 mod config;
+mod safety;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(
@@ -34,6 +36,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Show disk usage summary for common developer cache locations
+    ///
+    /// Emit machine-readable JSON when used with --json.
+    ///
+    /// Examples:
+    ///   dsg status
+    ///   dsg status --json
+    Status {
+        /// Emit JSON output
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Scan for reclaimable disk space
     Scan {
         /// Scan entire system (home dir + common cache paths) instead of CWD only
@@ -54,6 +69,18 @@ enum Commands {
     },
 
     /// Preview or execute cleanup (dry-run by default)
+    ///
+    /// Safety guarantees:
+    ///   - Dry-run is the default unless --force is passed
+    ///   - Files are moved to Trash, never permanently deleted
+    ///   - Activity (lsof) and age checks run before every item
+    ///   - Exclusion patterns from config are honoured
+    ///
+    /// Examples:
+    ///   dsg clean                         # dry-run: show what would be cleaned
+    ///   dsg clean --dry-run               # explicit dry-run (same as above)
+    ///   dsg clean --force                 # actually move to Trash
+    ///   dsg clean --ecosystem rust --force
     Clean {
         /// Preview only; print what would be deleted without touching the filesystem [default]
         #[arg(long)]
@@ -94,6 +121,7 @@ fn main() -> Result<()> {
     tracing::debug!("Config loaded: {:?}", cfg);
 
     match cli.command {
+        Commands::Status { json } => cmd_status(json, &cfg),
         Commands::Scan {
             deep,
             ecosystem,
@@ -108,6 +136,15 @@ fn main() -> Result<()> {
         } => cmd_clean(dry_run, force, target.as_deref(), ecosystem.as_deref(), &cfg),
         Commands::Caches { list, clean } => cmd_caches(list, clean.as_deref(), &cfg),
     }
+}
+
+fn cmd_status(json: bool, _cfg: &config::Config) -> Result<()> {
+    if json {
+        println!(r#"{{"status":"ok","message":"dsg status stub — scanner core arrives in change-dsg-004"}}"#);
+    } else {
+        println!("dsg status — scanner core arrives in change-dsg-004");
+    }
+    Ok(())
 }
 
 fn cmd_scan(
@@ -133,15 +170,46 @@ fn cmd_clean(
     ecosystem: Option<&str>,
     cfg: &config::Config,
 ) -> Result<()> {
-    let effective_dry_run = if force { false } else { dry_run || cfg.dry_run_default };
-    eprintln!(
-        "[stub] dsg clean — full implementation lands in change-dsg-003 (safety module) + change-dsg-005 (clean integration). dry_run={effective_dry_run}{}{}",
-        target.map(|t| format!(" target={}", t.display())).unwrap_or_default(),
-        ecosystem.map(|e| format!(" ecosystem={e}")).unwrap_or_default(),
-    );
+    // dry-run is the default; --force overrides; --dry-run is also explicit
+    let effective_dry_run = !force && (dry_run || cfg.dry_run_default);
+
+    let engine = safety::SafetyEngine::new(effective_dry_run, Arc::new(cfg.clone()));
+
     if effective_dry_run {
+        println!(
+            "dsg clean [dry-run]{}{}\n\
+             No files will be deleted. Pass --force to actually trash items.",
+            target
+                .map(|t| format!(" --target {}", t.display()))
+                .unwrap_or_default(),
+            ecosystem
+                .map(|e| format!(" --ecosystem {e}"))
+                .unwrap_or_default(),
+        );
+        println!(
+            "\nSafety engine ready: min_age={}d, {} exclusion(s) in config.",
+            cfg.min_age_days,
+            cfg.exclude_paths.len()
+        );
+        println!("[stub] scanner integration arrives in change-dsg-004 + change-dsg-005");
+        // Non-zero exit so callers can distinguish dry-run from real clean
         std::process::exit(2);
     }
+
+    // --force path: safety checks would run per item here once scanner is wired in
+    println!(
+        "dsg clean --force{}{}\n\
+         Safety engine: dry_run={}, min_age_secs={}",
+        target
+            .map(|t| format!(" --target {}", t.display()))
+            .unwrap_or_default(),
+        ecosystem
+            .map(|e| format!(" --ecosystem {e}"))
+            .unwrap_or_default(),
+        engine.dry_run,
+        engine.min_age_secs,
+    );
+    println!("[stub] item-level clean integration arrives in change-dsg-005");
     Ok(())
 }
 
@@ -157,8 +225,7 @@ fn cmd_caches(list: bool, clean: Option<&str>, _cfg: &config::Config) -> Result<
 fn init_tracing(level: &str, no_color: bool) {
     use tracing_subscriber::{fmt, EnvFilter};
 
-    let env_filter = std::env::var("DSG_LOG_LEVEL")
-        .unwrap_or_else(|_| level.to_string());
+    let env_filter = std::env::var("DSG_LOG_LEVEL").unwrap_or_else(|_| level.to_string());
 
     let builder = fmt::Subscriber::builder()
         .with_env_filter(EnvFilter::new(env_filter))
@@ -178,5 +245,13 @@ mod tests {
         let cfg = crate::config::Config::default();
         assert!(cfg.dry_run_default);
         assert_eq!(cfg.min_age_days, 1);
+    }
+
+    #[test]
+    fn safety_engine_dry_run_default() {
+        use std::sync::Arc;
+        let cfg = Arc::new(crate::config::Config::default());
+        let engine = crate::safety::SafetyEngine::new(true, cfg);
+        assert!(engine.dry_run);
     }
 }
