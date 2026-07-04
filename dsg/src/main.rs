@@ -1,4 +1,5 @@
 mod config;
+mod ecosystems;
 mod safety;
 mod scanner;
 
@@ -177,7 +178,7 @@ fn cmd_scan(
     json: bool,
     cfg: &config::Config,
 ) -> Result<()> {
-    let stale_secs = stale.and_then(|s| parse_duration(s));
+    let stale_secs = stale.and_then(parse_duration);
 
     let opts = scanner::ScanOptions {
         deep,
@@ -186,21 +187,29 @@ fn cmd_scan(
         min_size_bytes: cfg.min_size_mb * 1024 * 1024,
     };
 
-    // Detectors are stubs here; change-dsg-005 populates these properly.
-    let detectors: Vec<Box<dyn scanner::EcosystemDetector>> = vec![];
+    let detectors = ecosystems::all_detectors();
 
-    let root = if deep {
-        dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
+    let mut all_results = Vec::new();
+
+    if deep {
+        // Collect roots from every matching detector and walk each one
+        let roots = scanner::collect_scan_roots(&opts, &detectors);
+        if roots.is_empty() {
+            tracing::warn!("No known roots found for the requested scan.");
+        }
+        for root in &roots {
+            let mut r = scanner::scan_directory(root, &opts, &detectors);
+            all_results.append(&mut r);
+        }
     } else {
-        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
-    };
-
-    let results = scanner::scan_directory(&root, &opts, &detectors);
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        all_results = scanner::scan_directory(&cwd, &opts, &detectors);
+    }
 
     if json {
-        scanner::report_json(&results)
+        scanner::report_json(&all_results)
     } else {
-        scanner::report_human(&results);
+        scanner::report_human(&all_results);
         Ok(())
     }
 }
@@ -224,46 +233,120 @@ fn cmd_clean(
     ecosystem: Option<&str>,
     cfg: &config::Config,
 ) -> Result<()> {
-    // dry-run is the default; --force overrides; --dry-run is also explicit
     let effective_dry_run = !force && (dry_run || cfg.dry_run_default);
-
     let engine = safety::SafetyEngine::new(effective_dry_run, Arc::new(cfg.clone()));
 
-    if effective_dry_run {
-        println!(
-            "dsg clean [dry-run]{}{}\n\
-             No files will be deleted. Pass --force to actually trash items.",
-            target
-                .map(|t| format!(" --target {}", t.display()))
-                .unwrap_or_default(),
-            ecosystem
-                .map(|e| format!(" --ecosystem {e}"))
-                .unwrap_or_default(),
-        );
-        println!(
-            "\nSafety engine ready: min_age={}d, {} exclusion(s) in config.",
-            cfg.min_age_days,
-            cfg.exclude_paths.len()
-        );
-        println!("[stub] scanner integration arrives in change-dsg-004 + change-dsg-005");
-        // Non-zero exit so callers can distinguish dry-run from real clean
-        std::process::exit(2);
+    let opts = scanner::ScanOptions {
+        deep: true,
+        ecosystem_filter: ecosystem.map(str::to_string),
+        stale_secs: None,
+        min_size_bytes: cfg.min_size_mb * 1024 * 1024,
+    };
+
+    let detectors = ecosystems::all_detectors();
+
+    // Determine which roots to clean
+    let roots: Vec<std::path::PathBuf> = if let Some(t) = target {
+        vec![t.to_path_buf()]
+    } else {
+        scanner::collect_scan_roots(&opts, &detectors)
+    };
+
+    if roots.is_empty() {
+        println!("No reclaimable roots found for the given options.");
+        return Ok(());
     }
 
-    // --force path: safety checks would run per item here once scanner is wired in
+    let mode_label = if effective_dry_run { "[dry-run]" } else { "[LIVE]" };
     println!(
-        "dsg clean --force{}{}\n\
-         Safety engine: dry_run={}, min_age_secs={}",
+        "dsg clean {}{}{}\n",
+        mode_label,
         target
             .map(|t| format!(" --target {}", t.display()))
             .unwrap_or_default(),
         ecosystem
             .map(|e| format!(" --ecosystem {e}"))
             .unwrap_or_default(),
-        engine.dry_run,
-        engine.min_age_secs,
     );
-    println!("[stub] item-level clean integration arrives in change-dsg-005");
+
+    let mut trashed = 0usize;
+    let mut skipped = 0usize;
+    let mut errors = 0usize;
+
+    for root in &roots {
+        let candidates = scanner::scan_directory(root, &opts, &detectors);
+
+        for item in &candidates {
+            let path = &item.path;
+
+            // Exclusion check
+            if engine.should_exclude(path) {
+                tracing::debug!("Excluded: {}", path.display());
+                skipped += 1;
+                continue;
+            }
+
+            // Age guard
+            match engine.age_guard(path) {
+                Ok(old_enough) if !old_enough => {
+                    tracing::debug!("Too new, skipping: {}", path.display());
+                    skipped += 1;
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!("age_guard error for {}: {e}", path.display());
+                    skipped += 1;
+                    continue;
+                }
+                _ => {}
+            }
+
+            // Activity check (best-effort; don't block on error)
+            match engine.verify_activity(path) {
+                Ok(safety::ActivityCheck::Idle) => {}
+                Ok(safety::ActivityCheck::ActiveProcesses(procs)) => {
+                    println!("  SKIP (active) {} — used by: {}", path.display(), procs.join(", "));
+                    skipped += 1;
+                    continue;
+                }
+                Ok(safety::ActivityCheck::GitDirty) => {
+                    println!("  SKIP (git-dirty) {}", path.display());
+                    skipped += 1;
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!("activity check failed for {}: {e}", path.display());
+                    // Don't skip on check failure — proceed with caution
+                }
+            }
+
+            // Trash (or dry-run preview)
+            match engine.move_to_trash(path) {
+                Ok(()) => {
+                    println!("  {} {}", if effective_dry_run { "WOULD TRASH" } else { "TRASHED" }, path.display());
+                    trashed += 1;
+                }
+                Err(e) => {
+                    eprintln!("  ERROR trashing {}: {e}", path.display());
+                    errors += 1;
+                }
+            }
+        }
+    }
+
+    println!(
+        "\nSummary: {} {}, {} skipped, {} errors",
+        trashed,
+        if effective_dry_run { "would be trashed" } else { "trashed" },
+        skipped,
+        errors,
+    );
+
+    if effective_dry_run {
+        println!("Pass --force to execute the cleanup.");
+        std::process::exit(2);
+    }
+
     Ok(())
 }
 

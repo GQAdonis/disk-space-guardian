@@ -25,10 +25,10 @@ pub struct ScanResult {
 }
 
 /// Options that control the scan behaviour.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ScanOptions {
     /// Walk from home dir + known cache roots (true) or CWD only (false).
-    /// Consumed by change-dsg-005 ecosystem detectors.
+    /// Consumed by ecosystem detectors.
     #[allow(dead_code)]
     pub deep: bool,
     /// When set, only include results that match this ecosystem name.
@@ -37,17 +37,6 @@ pub struct ScanOptions {
     pub stale_secs: Option<u64>,
     /// Skip entries smaller than this (bytes). Avoids noisy tiny-file listings.
     pub min_size_bytes: u64,
-}
-
-impl Default for ScanOptions {
-    fn default() -> Self {
-        Self {
-            deep: false,
-            ecosystem_filter: None,
-            stale_secs: None,
-            min_size_bytes: 0,
-        }
-    }
 }
 
 /// Trait implemented by per-ecosystem detector plugins (change-dsg-005 fills these in).
@@ -142,6 +131,33 @@ pub fn scan_directory(
     results
 }
 
+/// Collect the union of all detector roots for deep scanning.
+///
+/// When `opts.ecosystem_filter` is set only that detector's roots are included.
+/// Deduplicates paths so overlapping detector roots don't cause double-walks.
+pub fn collect_scan_roots(
+    opts: &ScanOptions,
+    detectors: &[Box<dyn EcosystemDetector>],
+) -> Vec<PathBuf> {
+    let mut seen = std::collections::HashSet::new();
+    let mut roots = Vec::new();
+
+    for d in detectors {
+        if let Some(ref filter) = opts.ecosystem_filter {
+            if d.name() != filter.as_str() {
+                continue;
+            }
+        }
+        for root in d.detect_roots(opts.deep) {
+            if root.exists() && seen.insert(root.clone()) {
+                roots.push(root);
+            }
+        }
+    }
+
+    roots
+}
+
 /// Collect total size for each root path returned by detectors.
 /// Used by `dsg status` for a quick disk usage summary.
 pub fn measure_roots(roots: &[(String, PathBuf)]) -> Vec<(String, PathBuf, u64)> {
@@ -178,7 +194,7 @@ pub fn report_human(results: &[ScanResult]) {
     }
 
     let total: u64 = results.iter().map(|r| r.size_bytes).sum();
-    println!("{:<8}  {:<12}  {}", "TYPE", "SIZE", "PATH");
+    println!("{:<8}  {:<12}  PATH", "TYPE", "SIZE");
     println!("{}", "-".repeat(72));
 
     for r in results {
@@ -218,7 +234,7 @@ pub fn report_status_human(measurements: &[(String, PathBuf, u64)]) {
         println!("No known cache roots found.");
         return;
     }
-    println!("{:<30}  {:<12}  {}", "LOCATION", "SIZE", "PATH");
+    println!("{:<30}  {:<12}  PATH", "LOCATION", "SIZE");
     println!("{}", "-".repeat(80));
     for (label, path, size) in measurements {
         println!(

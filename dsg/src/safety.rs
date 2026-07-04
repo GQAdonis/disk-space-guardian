@@ -196,8 +196,7 @@ fn glob_match(pattern: &str, path: &str) -> bool {
         return true;
     }
     // Prefix: pattern without trailing slash matches path as a directory prefix
-    if path.starts_with(pattern) {
-        let after = &path[pattern.len()..];
+    if let Some(after) = path.strip_prefix(pattern) {
         return after.is_empty() || after.starts_with('/');
     }
     false
@@ -211,9 +210,11 @@ mod tests {
     use tempfile::NamedTempFile;
 
     fn engine(dry_run: bool, min_age_days: u64, excludes: Vec<String>) -> SafetyEngine {
-        let mut cfg = Config::default();
-        cfg.min_age_days = min_age_days;
-        cfg.exclude_paths = excludes;
+        let cfg = Config {
+            min_age_days,
+            exclude_paths: excludes,
+            ..Config::default()
+        };
         SafetyEngine::new(dry_run, Arc::new(cfg))
     }
 
