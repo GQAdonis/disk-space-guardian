@@ -6,7 +6,7 @@ priority: P0
 effort: M
 wave: 1
 agent: general-purpose
-status: in_progress
+status: done
 gap_id: dsg-002
 verdict: BUILD
 scope:
