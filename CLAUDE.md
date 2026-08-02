@@ -43,11 +43,11 @@ Planned CLI surface (from spec — not yet built): `dsg scan|clean|caches|watch|
 
 [docs/Prometheus Base Rules Set.md](docs/Prometheus%20Base%20Rules%20Set.md) is the canonical agent ruleset and applies to all work here. The full set matters, but for *this* project the load-bearing rules are:
 
-- **Simplicity & surgical changes (§2, §3):** minimum code that solves the problem; touch only what's necessary; match existing conventions.
-- **Minimize irreversible actions (§8):** confirm intent, prefer reversible approaches, create rollback paths — this is the product's own thesis applied to your own edits.
-- **Feature-based CLEAN architecture + strict layering (§15–§21):** organize by capability (Scanner, Safety, Knowledge, Automation modules per §3.1), not technical layers. If/when a UI exists, enforce UI → Hook → Store → Service → external; UI never calls services/APIs directly.
-- **Verify dependency versions (§22, §23):** the crate versions in the spec are targets — check current stable releases and breaking changes before adding any dependency. Never assume training-era versions.
-- **No hidden state, human override always (§13, §25):** disk decisions must be inspectable, auditable, and overridable. Every cleanup logs its rationale.
-- **Strong typing, tests as completion (§29, §30):** no untyped domain models; work isn't done until type-checks, lints, and tests pass (or you state why they can't run).
+- **Simplicity & surgical changes (A-4):** minimum code that solves the problem; touch only what's necessary; match existing conventions.
+- **Minimize irreversible actions (A-11):** confirm intent, prefer reversible approaches, create rollback paths — this is the product's own thesis applied to your own edits.
+- **Feature-based CLEAN architecture + strict layering (B-2–B-4):** organize by capability (Scanner, Safety, Knowledge, Automation modules per §3.1), not technical layers. If/when a UI exists, enforce UI → Hook → Store → Service → external; UI never calls services/APIs directly.
+- **Verify dependency versions (G-1):** the crate versions in the spec are targets — check current stable releases and breaking changes before adding any dependency. Never assume training-era versions.
+- **No hidden state, human override always (A-12, A-14):** disk decisions must be inspectable, auditable, and overridable. Every cleanup logs its rationale.
+- **Strong typing, tests as completion (A-9, B-7, C-2):** no untyped domain models; work isn't done until the designated verification tier passes (or you state why it could not run).
 
-Repo-level guidance (this file) may add stricter requirements but overrides the base rules only when explicit and non-contradictory with safety and user intent (§26).
+Repo-level guidance (this file) may add stricter requirements but overrides the base rules only when explicit and non-contradictory with safety and user intent (G-2).
